@@ -3,6 +3,7 @@ import { Experiment, StatsAnalysis } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { analyzeExperiment } from '../services/geminiService';
 import { Bot, RefreshCw, ArrowUpRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { getApiKey } from '../plugin-config';
 
 interface ReportViewProps {
   experiment: Experiment;
@@ -192,7 +193,7 @@ const ReportView: React.FC<ReportViewProps> = ({ experiment, onBack }) => {
                 {loadingAnalysis ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
                 {loadingAnalysis ? 'Analyzing Data...' : 'Generate Analysis'}
             </button>
-            {!process.env.API_KEY && (
+            {!getApiKey() && (
                 <p className="text-xs text-center text-red-500 mt-2">API_KEY missing in environment</p>
             )}
         </div>

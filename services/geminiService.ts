@@ -1,8 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { Experiment, StatsAnalysis } from "../types";
+import { getApiKey } from "../plugin-config";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API Key not found");
   }
