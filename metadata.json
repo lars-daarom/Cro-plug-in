@@ -1,0 +1,5 @@
+{
+  "name": "WP A/B Master Dashboard",
+  "description": "A high-fidelity React dashboard simulation for a WordPress A/B testing suite. Features experiment management, targeting configuration, visual editor simulation, and AI-powered statistical analysis.",
+  "requestFramePermissions": []
+}
