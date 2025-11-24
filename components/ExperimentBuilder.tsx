@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ExperimentType, TargetingRule } from '../types';
+import { ExperimentStatus, ExperimentType, TargetingRule } from '../types';
 import { TARGETING_CATEGORIES, OPERATORS } from '../constants';
-import { Layout, Smartphone, Globe, ShoppingCart, Plus, Trash2, Code, Eye } from 'lucide-react';
+import { Layout, Globe, Plus, Trash2, Code, BarChart2 } from 'lucide-react';
+import { NewExperimentInput } from '../services/experimentsService';
 
 interface ExperimentBuilderProps {
     onClose: () => void;
-    onSave: (data: any) => void;
+    onSave: (data: NewExperimentInput) => void;
 }
 
 const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }) => {
@@ -13,8 +14,18 @@ const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }
     const [name, setName] = useState('');
     const [type, setType] = useState<ExperimentType>(ExperimentType.AB);
     const [url, setUrl] = useState('https://');
-    const [variants, setVariants] = useState([{ name: 'Control', isControl: true, weight: 50 }, { name: 'Variant B', isControl: false, weight: 50 }]);
+    const [variants, setVariants] = useState([
+        { name: 'Control', isControl: true, weight: 50, visitors: 0, conversions: 0 },
+        { name: 'Variant B', isControl: false, weight: 50, visitors: 0, conversions: 0 }
+    ]);
     const [targeting, setTargeting] = useState<TargetingRule[]>([]);
+    const [error, setError] = useState<string | null>(null);
+
+    const updateVariant = (index: number, key: string, value: any) => {
+        const updated = [...variants];
+        (updated[index] as any)[key] = value;
+        setVariants(updated);
+    };
 
     const addTargetingRule = () => {
         setTargeting([...targeting, { id: Math.random().toString(), category: 'Device', attribute: '', operator: 'equals', value: '' }]);
@@ -28,6 +39,48 @@ const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }
 
     const removeRule = (index: number) => {
         setTargeting(targeting.filter((_, i) => i !== index));
+    };
+
+    const validateBasics = () => {
+        if (!name.trim() || !url.trim()) {
+            setError('Vul minimaal een naam en een geldige URL in.');
+            return false;
+        }
+        if (variants.length === 0) {
+            setError('Voeg minstens één variant toe.');
+            return false;
+        }
+        return true;
+    };
+
+    const handleContinue = () => {
+        if (step === 1 && !validateBasics()) {
+            return;
+        }
+        setError(null);
+        setStep(step + 1);
+    };
+
+    const handleLaunch = () => {
+        if (!validateBasics()) return;
+
+        const preparedVariants = variants.map((variant, idx) => ({
+            name: variant.name.trim() || `Variant ${idx + 1}`,
+            isControl: idx === 0 ? true : variant.isControl,
+            weight: Math.max(0, Number(variant.weight) || 0),
+            visitors: Math.max(0, Number(variant.visitors) || 0),
+            conversions: Math.max(0, Number(variant.conversions) || 0),
+        }));
+
+        onSave({
+            name: name.trim(),
+            type,
+            url: url.trim(),
+            status: ExperimentStatus.DRAFT,
+            variants: preparedVariants,
+            targeting,
+            startDate: new Date().toISOString().slice(0, 10),
+        });
     };
 
     const renderStep1 = () => (
@@ -144,12 +197,12 @@ const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }
     const renderStep3 = () => (
         <div className="space-y-6 animate-fade-in">
              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Variations</h3>
-                <button 
-                    onClick={() => setVariants([...variants, { name: `Variant ${variants.length}`, isControl: false, weight: 100/(variants.length+1) }])}
+                <h3 className="text-lg font-medium text-gray-900">Varianten & metingen</h3>
+                <button
+                    onClick={() => setVariants([...variants, { name: `Variant ${variants.length + 1}`, isControl: false, weight: 100/(variants.length+1), visitors: 0, conversions: 0 }])}
                     className="flex items-center gap-1 text-sm bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-medium"
                 >
-                    <Plus className="w-4 h-4" /> Add Variant
+                    <Plus className="w-4 h-4" /> Variant toevoegen
                 </button>
              </div>
 
@@ -161,24 +214,21 @@ const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }
                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${variant.isControl ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
                                      {idx === 0 ? 'A' : String.fromCharCode(65 + idx)}
                                  </div>
-                                 <input 
-                                    value={variant.name} 
-                                    onChange={(e) => {
-                                        const newV = [...variants];
-                                        newV[idx].name = e.target.value;
-                                        setVariants(newV);
-                                    }}
+                                 <input
+                                    value={variant.name}
+                                    onChange={(e) => updateVariant(idx, 'name', e.target.value)}
                                     className="font-medium text-gray-900 border-none focus:ring-0 p-0 hover:bg-gray-50 rounded px-2"
                                  />
-                                 {variant.isControl && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Original</span>}
+                                 {variant.isControl && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Origineel</span>}
                              </div>
                              <div className="flex items-center gap-3">
                                  <div className="flex items-center gap-1 text-xs text-gray-500">
                                      <span>Traffic:</span>
-                                     <input 
-                                        type="number" 
-                                        className="w-12 border rounded p-1 text-center"
+                                     <input
+                                        type="number"
+                                        className="w-16 border rounded p-1 text-center"
                                         value={Math.round(variant.weight)}
+                                        onChange={(e) => updateVariant(idx, 'weight', Number(e.target.value))}
                                      />
                                      %
                                  </div>
@@ -189,18 +239,35 @@ const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }
                                  )}
                              </div>
                          </div>
-                         
-                         <div className="bg-gray-50 rounded-lg p-8 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 group-hover:border-indigo-300 transition-colors">
-                            {variant.isControl ? (
-                                <p className="text-sm text-gray-500">This is the original page content.</p>
-                            ) : (
-                                <div className="text-center space-y-2">
-                                    <p className="text-sm text-gray-500">Modify this variant using the visual editor.</p>
-                                    <button className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm">
-                                        <Eye className="w-4 h-4" /> Launch Visual Editor
-                                    </button>
+
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <label className="flex flex-col text-sm text-gray-600">
+                                Bezoekers
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={variant.visitors}
+                                    onChange={(e) => updateVariant(idx, 'visitors', Number(e.target.value))}
+                                    className="mt-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                            </label>
+                            <label className="flex flex-col text-sm text-gray-600">
+                                Conversies
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={variant.conversions}
+                                    onChange={(e) => updateVariant(idx, 'conversions', Number(e.target.value))}
+                                    className="mt-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                            </label>
+                            <label className="flex flex-col text-sm text-gray-600">
+                                Opmerking
+                                <div className="mt-1 border border-dashed border-gray-300 rounded-lg p-3 text-gray-500 bg-gray-50/80 flex items-center gap-2">
+                                    <BarChart2 className="w-4 h-4 text-indigo-500" />
+                                    Vul je eigen statistieken of notities in je CMS in; deze plugin bewaart de cijfers.
                                 </div>
-                            )}
+                            </label>
                          </div>
                      </div>
                  ))}
@@ -214,22 +281,22 @@ const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }
                 {/* Header */}
                 <div className="border-b border-gray-200 px-8 py-5 flex justify-between items-center bg-white z-10">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-800">Create New Experiment</h2>
-                        <p className="text-sm text-gray-500">Step {step} of 3: {step === 1 ? 'Details' : step === 2 ? 'Targeting' : 'Variations'}</p>
+                        <h2 className="text-xl font-bold text-gray-800">Nieuw experiment aanmaken</h2>
+                        <p className="text-sm text-gray-500">Stap {step} van 3: {step === 1 ? 'Details' : step === 2 ? 'Targeting' : 'Varianten'}</p>
                     </div>
                     <div className="flex gap-2">
                         {step > 1 && (
-                            <button onClick={() => setStep(step - 1)} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+                            <button onClick={() => { setError(null); setStep(step - 1); }} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
                                 Back
                             </button>
                         )}
                         {step < 3 ? (
-                            <button onClick={() => setStep(step + 1)} className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">
-                                Continue
+                            <button onClick={handleContinue} className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">
+                                Volgende
                             </button>
                         ) : (
-                            <button onClick={() => onSave({ name, type, url, variants, targeting })} className="px-6 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm">
-                                Launch Experiment
+                            <button onClick={handleLaunch} className="px-6 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm">
+                                Opslaan in WordPress
                             </button>
                         )}
                         <button onClick={onClose} className="ml-2 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
@@ -237,6 +304,10 @@ const ExperimentBuilder: React.FC<ExperimentBuilderProps> = ({ onClose, onSave }
                         </button>
                     </div>
                 </div>
+
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-3 text-sm">{error}</div>
+                )}
 
                 {/* Progress Bar */}
                 <div className="h-1 bg-gray-100 w-full">
