@@ -22,9 +22,9 @@ export interface Variant {
 
 export interface TargetingRule {
   id: string;
-  category: 'Device' | 'Browser' | 'URL' | 'WooCommerce' | 'UTM';
+  category: 'Device' | 'Browser' | 'URL' | 'WooCommerce' | 'UTM' | 'Geo';
   attribute: string;
-  operator: 'equals' | 'contains' | 'not_equals' | 'greater_than';
+  operator: 'equals' | 'contains' | 'not_equals' | 'greater_than' | 'less_than' | 'starts_with';
   value: string;
 }
 

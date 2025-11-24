@@ -1,6 +1,8 @@
 export interface CroPluginConfig {
   apiKey?: string;
   rootId?: string;
+  restUrl?: string;
+  restNonce?: string;
 }
 
 const DEFAULT_ROOT_ID = 'cro-plugin-root';
@@ -21,4 +23,12 @@ export const getRootElementId = (): string => {
 
 export const getApiKey = (): string | undefined => {
   return getGlobalConfig()?.apiKey || process.env.API_KEY;
+};
+
+export const getRestUrl = (): string | undefined => {
+  return getGlobalConfig()?.restUrl;
+};
+
+export const getRestNonce = (): string | undefined => {
+  return getGlobalConfig()?.restNonce;
 };

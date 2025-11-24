@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Experiment, StatsAnalysis } from '../types';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { analyzeExperiment } from '../services/geminiService';
 import { Bot, RefreshCw, ArrowUpRight, CheckCircle, AlertCircle } from 'lucide-react';
 import { getApiKey } from '../plugin-config';
@@ -63,17 +63,12 @@ const ReportView: React.FC<ReportViewProps> = ({ experiment, onBack }) => {
     setLoadingAnalysis(false);
   };
 
-  // Mock time-series data generation
-  const chartData = [1, 2, 3, 4, 5, 6, 7].map(day => {
-    const point: any = { name: `Day ${day}` };
-    experiment.variants.forEach(v => {
-        // Add some randomness to the trend
-        const stat = stats.find(s => s.variantId === v.id);
-        const baseCR = stat ? stat.conversionRate : 2;
-        point[v.name] = Math.max(0, baseCR + (Math.random() * 2 - 1));
-    });
-    return point;
-  });
+  const chartData = experiment.variants.map((variant) => ({
+    name: variant.name,
+    visitors: variant.visitors,
+    conversions: variant.conversions,
+    conversionRate: variant.visitors > 0 ? (variant.conversions / variant.visitors) * 100 : 0,
+  }));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -138,27 +133,23 @@ const ReportView: React.FC<ReportViewProps> = ({ experiment, onBack }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart Section */}
         <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-semibold mb-6">Conversion Rate Over Time</h3>
+            <h3 className="text-lg font-semibold mb-6">Bezoekers & conversies per variant</h3>
             <div className="h-80 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <BarChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                         <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`}/>
-                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                        <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
+                        <Tooltip formatter={(value: number | string, name: string) => {
+                            const numeric = typeof value === 'number' ? value : Number(value);
+                            return name === 'conversionRate' ? `${numeric.toFixed(2)}%` : numeric.toLocaleString();
+                        }} />
                         <Legend />
-                        {experiment.variants.map((v, idx) => (
-                             <Line 
-                                key={v.id} 
-                                type="monotone" 
-                                dataKey={v.name} 
-                                stroke={v.isControl ? '#3b82f6' : idx % 2 === 0 ? '#10b981' : '#f59e0b'} 
-                                strokeWidth={3} 
-                                dot={{r: 4, strokeWidth: 2}}
-                                activeDot={{r: 6}}
-                             />
-                        ))}
-                    </LineChart>
+                        <Bar yAxisId="left" dataKey="visitors" name="Bezoekers" fill="#6366f1" radius={[4,4,0,0]} />
+                        <Bar yAxisId="left" dataKey="conversions" name="Conversies" fill="#f97316" radius={[4,4,0,0]} />
+                        <Bar yAxisId="right" dataKey="conversionRate" name="Conversieratio %" fill="#10b981" radius={[4,4,0,0]} />
+                    </BarChart>
                 </ResponsiveContainer>
             </div>
         </div>
